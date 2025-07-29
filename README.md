@@ -17,6 +17,7 @@ Sagas can be implemented in **“two ways”**:
 
 ## Features
 - Thread & Concurrent safe
+- Retriable, Idempotent
 - InMemory & Redis support
 - Distributed transactions
 
