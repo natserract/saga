@@ -1,0 +1,27 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: style-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: "Go Test"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/dangerous-git-checkout
+      - uses: ./.github/actions/go-setup
+        with:
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+      - name: Go test
+        run: make test

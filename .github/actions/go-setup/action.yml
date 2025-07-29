@@ -1,0 +1,40 @@
+name: Golang Setup
+description: "Running golang setup"
+inputs:
+  REDIS_URL:
+    description: "Redis URL"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Install make
+      shell: bash
+      run: |
+        sudo apt-get install make
+
+    - name: Set Up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.24.2 # https://github.com/actions/setup-go/issues/506
+        check-latest: true
+
+    - name: Set CGO flags
+      shell: bash
+      run: echo "CGO_ENABLED=1" >> "$GITHUB_ENV"
+
+    - name: Create-Env-File
+      shell: bash
+      run: |
+        echo "REDIS_URL=${{ inputs.REDIS_URL }}" > .env
+
+    - name: Display-Env-File
+      shell: bash
+      run: cat .env
+
+    - name: Go mod tidy
+      shell: bash
+      run: make tidy
+
+    - name: Go mod download
+      shell: bash
+      run: make download
