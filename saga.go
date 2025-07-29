@@ -84,23 +84,19 @@ func (s *Saga) Execute() error {
 		action := &s.Actions[i]
 
 		idempotencyKey := fmt.Sprintf("%s-action-%s-%d", s.Name, action.name, i+1)
-		fmt.Println("idempotencyKey", idempotencyKey, s.idempotencyStore.IsCompleted(idempotencyKey))
 		if s.idempotencyStore.IsCompleted(idempotencyKey) {
-			fmt.Printf("Action %d in saga %s already completed (idempotent), skipping.\n", i+1, s.Name)
 			continue
 		}
 
 		err := action.executeWithRetry(s.config.MaxRetries, s.config.RetryWaitTime)
 		if err != nil {
 			action.updateStatus(Failed)
-			fmt.Printf("Action %d in saga %s failed: %v\n", i+1, s.Name, err)
 			rollback(s.Actions[:i+1]) // Rollback all previous actions
 			return err
 		}
 		action.updateStatus(Completed)
 		s.idempotencyStore.MarkCompleted(idempotencyKey)
 	}
-	fmt.Printf("Saga %s completed successfully\n", s.Name)
 	return nil
 }
 
@@ -113,7 +109,6 @@ func (s *Saga) Next() error {
 	idempotencyKey := fmt.Sprintf("%s-action-%s-%d", s.Name, action.name, s.currentActionStep+1)
 
 	if s.idempotencyStore.IsCompleted(idempotencyKey) {
-		fmt.Printf("Action %d in saga %s already completed (idempotent), skipping.\n", s.currentActionStep+1, s.Name)
 		s.currentActionStep++
 		return s.Next() // move to the next action
 	}
@@ -121,7 +116,6 @@ func (s *Saga) Next() error {
 	err := action.executeWithRetry(s.config.MaxRetries, s.config.RetryWaitTime)
 	if err != nil {
 		action.updateStatus(Failed)
-		fmt.Printf("Action %d in saga %s failed: %v\n", s.currentActionStep+1, s.Name, err)
 		rollback(s.Actions[:s.currentActionStep]) // Rollback all previous actions
 		return err
 	}
@@ -130,7 +124,6 @@ func (s *Saga) Next() error {
 	s.idempotencyStore.MarkCompleted(idempotencyKey)
 	s.currentActionStep++
 	if s.currentActionStep == len(s.Actions) {
-		fmt.Printf("Saga %s completed successfully\n", s.Name)
 		return nil
 	}
 	return nil
@@ -146,10 +139,8 @@ func (s *Saga) Prev() error {
 
 	if action.getStatus() == Completed {
 		action.updateStatus(Compensating)
-		fmt.Printf("Compensating action %d...\n", s.currentActionStep+1)
 		err := action.compensate()
 		if err != nil {
-			fmt.Printf("Compensation for action %d failed\n", s.currentActionStep+1)
 			return err
 		}
 		action.updateStatus(Compensated)
@@ -160,16 +151,13 @@ func (s *Saga) Prev() error {
 func (a *SagaAction) executeWithRetry(maxRetries int, retryWaitTime time.Duration) error {
 	var err error
 
-	for retry := range maxRetries {
+	for _ = range maxRetries {
 		a.updateStatus(InProgress)
-		fmt.Printf("Attempting action, try %d\n", retry+1)
 		err = a.action()
-		fmt.Println("Exec", err, retry)
 
 		if err == nil {
 			return nil
 		}
-		fmt.Println("Action failed:", err)
 		time.Sleep(retryWaitTime) // Wait before retrying
 	}
 	return err
@@ -177,20 +165,16 @@ func (a *SagaAction) executeWithRetry(maxRetries int, retryWaitTime time.Duratio
 
 // rollback compensates each completed action in reverse order
 func rollback(actions []SagaAction) {
-	fmt.Println("Initiating rollback...")
-
 	// Compensate in reverse order
-	fmt.Println("len(actions)", actions, len(actions), len(actions)-1)
 	for i := len(actions) - 1; i >= 0; i-- {
 		action := &actions[i]
 		if action.getStatus() == Failed {
 			action.updateStatus(Compensating)
-			fmt.Printf("Compensating action %d...\n", i+1)
 			err := action.compensate()
 			if err == nil {
 				action.updateStatus(Compensated)
 			} else {
-				fmt.Printf("Compensation for action %d failed\n", i+1)
+				continue
 			}
 		}
 	}
