@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/natserract/saga/internal/contract"
 )
 
 type SagaStatus int
@@ -43,12 +45,12 @@ type Saga struct {
 	Actions []SagaAction
 
 	config           *SagaOptions
-	idempotencyStore *IdempotencyStore
+	idempotencyStore contract.Store
 
 	currentActionStep int
 }
 
-func NewSaga(name string, cfg *SagaOptions) *Saga {
+func newSaga(name string, cfg *SagaOptions, store contract.Store) *Saga {
 	if cfg == nil {
 		cfg = &SagaOptions{
 			MaxRetries:    defaultMaxRetries,
@@ -60,9 +62,19 @@ func NewSaga(name string, cfg *SagaOptions) *Saga {
 		Name:              name,
 		Actions:           []SagaAction{},
 		config:            cfg,
-		idempotencyStore:  NewIdempotencyStore(),
+		idempotencyStore:  store,
 		currentActionStep: 0,
 	}
+}
+
+func NewSaga(name string, cfg *SagaOptions) *Saga {
+	store := NewMemoryIdempotencyStore()
+	return newSaga(name, cfg, store)
+}
+
+func NewSagaWithRedis(url string, name string, cfg *SagaOptions) *Saga {
+	store := NewRedisIdempotencyStore(url)
+	return newSaga(name, cfg, store)
 }
 
 func (s *Saga) AddAction(

@@ -1,11 +1,15 @@
 package saga
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/natserract/saga/internal/env"
+	"github.com/natserract/saga/internal/redis_store"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -172,4 +176,44 @@ func TestSaga_NextPrevWithRetries(t *testing.T) {
 		t.Fatalf("Unexpected error during Prev execution: %v", err)
 	}
 	assert.Equal(t, 1, saga.currentActionStep, "Current step should be 1")
+}
+
+func TestSaga_WithRedisStore(t *testing.T) {
+	env.Load(".env")
+
+	REDIS_URL := os.Getenv("REDIS_URL")
+	assert.NotEmpty(t, REDIS_URL, "REDIS_URL should not be empty")
+
+	t.Logf("Using Redis URL: %s", REDIS_URL)
+	saga := NewSagaWithRedis(REDIS_URL, "TestSagaWithRedisStore", nil)
+
+	var requested, succeeded int
+	action := func() error {
+		requested++
+		succeeded++
+		return nil
+	}
+	compensate := func() error {
+		return nil
+	}
+	saga.AddAction("Action", action, compensate)
+
+	err := saga.Execute()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Check if key exists in Redis
+	store, err := redis_store.NewRedisStore(&redis_store.Config{
+		Url: REDIS_URL,
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error during Redis store creation: %v", err)
+	}
+
+	exists, err := store.Get(context.Background(), "TestSagaWithRedisStore-action-Action-1")
+	if err != nil {
+		t.Fatalf("Unexpected error during Redis key existence check: %v", err)
+	}
+	assert.NotNil(t, exists, "Key should exist in Redis")
 }

@@ -15,6 +15,11 @@ Sagas can be implemented in **“two ways”**:
 3. **Compensate**: A Compensate action is used to reverse the effects of a previous Action in case of failure or rollback.
 4. **Execute**: To Execute means to carry out an Action within the Saga workflow. This involves performing the corresponding local transaction as part of advancing the Saga.
 
+## Features
+- Thread & Concurrent safe
+- InMemory & Redis support
+- Distributed transactions
+
 ## Usage
 
 ```go
@@ -54,4 +59,9 @@ if err != nil {
 	c.log.Error("Error on executing saga: ", err)
 	return nil, err
 }
+```
+
+## Usage with Redis
+```go
+saga := NewSagaWithRedis(REDIS_URL, "TestSagaWithRedisStore", nil)
 ```
