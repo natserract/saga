@@ -68,7 +68,7 @@ func (s *RedisStore) Get(ctx context.Context, key string) (interface{}, error) {
 
 // Delete remove key in redis, do nothing if key doesn't exist
 func (s *RedisStore) Delete(ctx context.Context, key string) (bool, error) {
-	cmd := s.Client.Del(ctx, key)
+	cmd := s.Client.Del(ctx, s.wrapperKey(key))
 	if err := cmd.Err(); err != nil {
 		return false, err
 	}
